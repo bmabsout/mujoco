@@ -1562,7 +1562,17 @@ _PRIMITIVE_COLLISIONS = {
 
 @cache_kernel
 def _primitive_narrowphase(primitive_collisions_types, primitive_collisions_func):
-  @wp.kernel(module="unique", enable_backward=False)
+  def order_independent_hash(items):
+    """Collision-free hash for any iterable of ints, order-independent."""
+    hash_val = 0
+    for item in sorted(items): # sorting ensures order-independence
+        # upper sudzik as a collision free hash
+        hash_val = max(hash_val, item)**2 + min(hash_val, item)
+    return hash_val
+
+  types_hash = order_independent_hash(map(order_independent_hash, primitive_collisions_types))
+  unique_kernel_name = f"primitive_narrowphase_{types_hash}"
+  @wp.kernel(module=unique_kernel_name, enable_backward=False)
   def primitive_narrowphase(
     # Model:
     geom_type: wp.array(dtype=int),
